@@ -101,7 +101,8 @@ class ViewController: UIViewController, WKUIDelegate, WKNavigationDelegate {
             let sbMessenger = try Messenger(
               config: basicConfig,
               hostNotificationDelegate: hostNotification,
-              resetAtStart: false
+              resetAtStart: false,
+              logLevel: 2  // logLevel 0=debug, 1=log, 2=warn, 3=error
             )
 
             let sbView: WKWebView = try sbMessenger.load()
