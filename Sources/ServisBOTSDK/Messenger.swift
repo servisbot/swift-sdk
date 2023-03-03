@@ -22,6 +22,9 @@ public class Messenger {
     var webview: WKWebView?
     var config: [String:Any]
     var resetAtStart: Bool
+    var bundleLink: String
+    var hostPageUrl: String
+    var hostNotificationDelegate: ((String) -> Void)?
     
     var htmlContent = """
         <html>
@@ -32,16 +35,53 @@ public class Messenger {
         </body>
         </html>
         """
-    var baseUrl = "https://servisbot.com"   // needs to match to your origin settings(security) and needed for localStorage
-    
-    public init(config: [String: Any], resetAtStart: Bool=false) {
+
+    public init(
+        config: [String: Any],
+        hostPageUrl: String="https://servisbot.com",
+        hostNotificationDelegate: ((String) -> Void)?=nil,
+        resetAtStart: Bool=false
+    ) throws {
+        /*
+         hostPageUrl needs to match to your origin settings(security) and needed for localStorage
+         */
         self.config = config
+        self.hostPageUrl = hostPageUrl
+        self.hostNotificationDelegate = hostNotificationDelegate
         self.resetAtStart = resetAtStart
         
-        // Validate config, ensure organization is present.
-        
+        // Validate config, ensure required parameters are present.
+        if (!self.config.keys.contains("organization")) {
+            throw "organization is required"
+        }
+        if (!self.config.keys.contains("endpoint")) {
+            throw "endpoint is required"
+        }
+        if (!self.config.keys.contains("sbRegion")) {
+            throw "sbRegion is required"
+        }
+
         if (!self.config.keys.contains("defaultOpen")) {
             self.config["defaultOpen"] = false
+        }
+                
+        if let region = self.config["sbRegion"] as? String {
+            switch region {
+            case "us-1", "us1":
+                self.bundleLink = "https://lightning.us1.helium.servismatrixcdn.com/v2/latest/bundle-messenger.js"
+            case "eu-1", "eu1":
+                self.bundleLink = "https://lightning.production.helium.servismatrixcdn.com/v2/latest/bundle-messenger.js"
+            default:
+                throw "sbRegion is unknown"
+            }
+        } else {
+            throw "sbRegion is invalid"
+        }
+    }
+    
+    private func hostNotification(message: String) {
+        if (self.hostNotificationDelegate != nil) {
+            self.hostNotificationDelegate!(message)
         }
     }
     
@@ -51,7 +91,7 @@ public class Messenger {
         
         let userContentController = WKUserContentController()
         setupLogging(userContentController: userContentController)
-        hookToMessenger(userContentController: userContentController)
+        hookToMessenger(userContentController: userContentController, delegate: hostNotification)
         try userContentController.addUserScript(self.getBundle())
         userContentController.addUserScript(self.initBundle())
         
@@ -61,14 +101,12 @@ public class Messenger {
         
         let safeWebView: WKWebView = WKWebView(frame: CGRect.zero, configuration: configuration)
         // Load HTML string to web view
-        safeWebView.loadHTMLString(self.htmlContent, baseURL: URL(string: self.baseUrl))
+        safeWebView.loadHTMLString(self.htmlContent, baseURL: URL(string: self.hostPageUrl))
         self.webview = safeWebView
         return safeWebView
     }
     
     private func getBundle() throws -> WKUserScript {
-        let bundleLink = "https://lightning.us1.helium.servismatrixcdn.com/v2/latest/bundle-messenger.js"
-
         guard
             let bundleUrl = URL(string: bundleLink),
             let bundleContent = try? String(contentsOf: bundleUrl, encoding: .utf8) else {
