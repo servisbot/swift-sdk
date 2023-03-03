@@ -25,6 +25,7 @@ public class Messenger {
     var bundleLink: String
     var hostPageUrl: String
     var hostNotificationDelegate: ((String) -> Void)?
+    var logLevel: Int
     
     var htmlContent = """
         <html>
@@ -40,7 +41,8 @@ public class Messenger {
         config: [String: Any],
         hostPageUrl: String="https://servisbot.com",
         hostNotificationDelegate: ((String) -> Void)?=nil,
-        resetAtStart: Bool=false
+        resetAtStart: Bool=false,
+        logLevel: Int=3
     ) throws {
         /*
          hostPageUrl needs to match to your origin settings(security) and needed for localStorage
@@ -49,6 +51,7 @@ public class Messenger {
         self.hostPageUrl = hostPageUrl
         self.hostNotificationDelegate = hostNotificationDelegate
         self.resetAtStart = resetAtStart
+        self.logLevel = logLevel
         
         // Validate config, ensure required parameters are present.
         if (!self.config.keys.contains("organization")) {
@@ -90,7 +93,7 @@ public class Messenger {
         preferences.javaScriptEnabled = true
         
         let userContentController = WKUserContentController()
-        setupLogging(userContentController: userContentController)
+        try setupLogging(userContentController: userContentController, logLevel: self.logLevel)
         hookToMessenger(userContentController: userContentController, delegate: hostNotification)
         try userContentController.addUserScript(self.getBundle())
         userContentController.addUserScript(self.initBundle())
@@ -145,7 +148,6 @@ public class Messenger {
                 toSdk(message);
             });
         """
-        print(javaScriptInit)
         let initScript = WKUserScript(source: javaScriptInit,
                                       injectionTime: .atDocumentEnd,
                                       forMainFrameOnly: true)
