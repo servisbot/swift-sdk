@@ -2,7 +2,38 @@ import Foundation
 import WebKit
 
 
-public func setupLogging(userContentController: WKUserContentController) {
+public func setupLogging(userContentController: WKUserContentController, logLevel: Int = 0) throws {
+    
+    var enableLevels:String = ""
+    
+    switch logLevel {
+    case 0:
+        enableLevels =
+        """
+        console.debug = function() { log("📘", "debug", arguments); originalDebug.apply(null, arguments) }
+        console.log = function() { log("📗", "log", arguments); originalLog.apply(null, arguments) }
+        console.warn = function() { log("📙", "warning", arguments); originalWarn.apply(null, arguments) }
+        console.error = function() { log("📕", "error", arguments); originalError.apply(null, arguments) }
+        """
+    case 1:
+        enableLevels = """
+        console.log = function() { log("📗", "log", arguments); originalLog.apply(null, arguments) }
+        console.warn = function() { log("📙", "warning", arguments); originalWarn.apply(null, arguments) }
+        console.error = function() { log("📕", "error", arguments); originalError.apply(null, arguments) }
+        """
+    case 2:
+        enableLevels = """
+        console.warn = function() { log("📙", "warning", arguments); originalWarn.apply(null, arguments) }
+        console.error = function() { log("📕", "error", arguments); originalError.apply(null, arguments) }
+        """
+    case 3:
+        enableLevels = """
+        console.error = function() { log("📕", "error", arguments); originalError.apply(null, arguments) }
+        """
+    default:
+        throw "Invalid logLevel"
+    }
+    
     let overrideConsole = """
         function log(emoji, type, args) {
           window.webkit.messageHandlers.logging.postMessage(
@@ -17,11 +48,8 @@ public func setupLogging(userContentController: WKUserContentController) {
         let originalWarn = console.warn
         let originalError = console.error
         let originalDebug = console.debug
-
-        console.log = function() { log("📗", "log", arguments); originalLog.apply(null, arguments) }
-        console.warn = function() { log("📙", "warning", arguments); originalWarn.apply(null, arguments) }
-        console.error = function() { log("📕", "error", arguments); originalError.apply(null, arguments) }
-        console.debug = function() { log("📘", "debug", arguments); originalDebug.apply(null, arguments) }
+    
+        \(enableLevels)
 
         window.addEventListener("error", function(e) {
            log("💥", "Uncaught", [`${e.message} at ${e.filename}:${e.lineno}:${e.colno}`])
@@ -38,3 +66,9 @@ public func setupLogging(userContentController: WKUserContentController) {
     userContentController.addUserScript(WKUserScript(source: overrideConsole, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
 }
+
+
+//        console.log = function() { log("📗", "log", arguments); originalLog.apply(null, arguments) }
+//        console.warn = function() { log("📙", "warning", arguments); originalWarn.apply(null, arguments) }
+//        console.error = function() { log("📕", "error", arguments); originalError.apply(null, arguments) }
+//        console.debug = function() { log("📘", "debug", arguments); originalDebug.apply(null, arguments) }
